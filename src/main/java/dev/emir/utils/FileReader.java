@@ -2,14 +2,13 @@ package dev.emir.utils;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import dev.emir.adapters.ClassFactory;
 import dev.emir.interfaces.IConfigurationModel;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 
 public class FileReader {
-    public static transient Gson gson = new GsonBuilder().setPrettyPrinting().registerTypeAdapterFactory(new ClassFactory()).create();
+    public static Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
     public static <T> void encryptSave(IConfigurationModel<T> configurationModel, File sourceFile, String filename) throws IOException {
         OutputStreamWriter fileWriter;

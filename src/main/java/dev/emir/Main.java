@@ -1,40 +1,72 @@
 package dev.emir;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import dev.emir.db.Mongod;
+import dev.emir.events.BungeeCordListener;
 import dev.emir.events.PlayerListeners;
-import dev.emir.interfaces.IConfigurationModel;
-import dev.emir.managers.*;
-import dev.emir.utils.FileReader;
-import dev.emir.utils.Serializer;
+import dev.emir.managers.GameManager;
+import dev.emir.managers.KitsManager;
+import dev.emir.managers.PlayerManager;
+import dev.emir.managers.SongsManager;
+import dev.emir.noteblockapi.NBSDecoder;
+import dev.emir.noteblockapi.Noteblock;
+import dev.emir.scoreboad.ScoreboardObjectHandler;
+import dev.emir.utils.WorldEdit;
 import org.bukkit.Bukkit;
-import org.bukkit.Location;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.Arrays;
+import java.util.logging.Logger;
+
 
 public final class Main extends JavaPlugin {
 
     private static Main instance;
 
+    public static Logger logger = Logger.getLogger("HiddenKiller");
+
+    public static Gson gson = new GsonBuilder().create();
+
     private PlayerManager playerManager;
     private GameManager gameManager;
     private KitsManager kitsManager;
-    private ScoreboardManager scoreboardManager;
-    private PluginConfiguration configuration;
     private Mongod mongod;
+    private WorldEdit worldEdit;
+    private ScoreboardObjectHandler scoreboardDataHandler;
+
+    private BungeeCordListener bungeeCordListener;
+    private SongsManager songsManager;
+
+    private Noteblock noteblock;
 
     @Override
     public void onEnable() {
         instance = this;
+        this.getServer().getMessenger().registerIncomingPluginChannel(this, "BungeeCord", bungeeCordListener = new BungeeCordListener());
+        this.getServer().getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
+        this.getServer().getMessenger().registerIncomingPluginChannel(this, "HiddenKiller", bungeeCordListener);
+        this.getServer().getMessenger().registerOutgoingPluginChannel(this, "HiddenKiller");
         this.mongod = new Mongod();
-        this.configuration = new PluginConfiguration().load();
+        this.worldEdit = new WorldEdit();
         this.gameManager = new GameManager();
-        this.playerManager = new PlayerManager(this.mongod.getCollection("hiddenkiller"));
+        this.playerManager = new PlayerManager(this.mongod.getCollection("users"));
+
+        this.getConfig().options().copyDefaults(true);
+        saveResource("Lavanda.nbs", true);
+        saveResource("test", true);
+        this.saveDefaultConfig();
+        this.songsManager = new SongsManager(NBSDecoder.parse(new File(getDataFolder(), "Lavanda.nbs")));
+        this.noteblock = new Noteblock();
+
+        this.scoreboardDataHandler = new ScoreboardObjectHandler();
+        this.scoreboardDataHandler.enable();
+
+
         this.kitsManager = new KitsManager();
-        this.scoreboardManager = new ScoreboardManager();
-        loadEvents(new PlayerListeners());
+        loadEvents(new PlayerListeners(), this.scoreboardDataHandler, this.songsManager);
     }
 
 
@@ -44,7 +76,7 @@ public final class Main extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        // Plugin shutdown logic
+        this.mongod.disconnect();
     }
 
     public static Main getInstance() {
@@ -66,56 +98,27 @@ public final class Main extends JavaPlugin {
         return kitsManager;
     }
 
-    public ScoreboardManager getScoreboardManager() {
-        return scoreboardManager;
+    public BungeeCordListener getBungeeCordListener() {
+        return bungeeCordListener;
+    }
+
+    public ScoreboardObjectHandler getScoreboardDataHandler() {
+        return scoreboardDataHandler;
     }
 
     public Mongod getMongod() {
         return mongod;
     }
 
-    public PluginConfiguration getConfiguration() {
-        return configuration;
+    public Noteblock getNoteblock() {
+        return noteblock;
     }
 
-    public static class PluginConfiguration implements IConfigurationModel<PluginConfiguration> {
+    public WorldEdit getWorldEdit() {
+        return worldEdit;
+    }
 
-
-        String lobbyWorld;
-
-        public Location getLobby() {
-            System.out.println(lobbyWorld);
-            if (this.lobbyWorld == null) return null;
-            return Serializer.StringToLocation(lobbyWorld);
-        }
-
-        public void setLobby(Location location) {
-            this.lobbyWorld = Serializer.LocationToString(location);
-        }
-
-        @Override
-        public void save() {
-            System.out.println("GuaRDANDo");
-            try {
-                FileReader.save(this, Main.getInstance().getDataFolder(), "config.json");
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-        @Override
-        public PluginConfiguration load() {
-            try {
-                return FileReader.load(new File(Main.getInstance().getDataFolder(), "config.json"), this);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            return this;
-        }
-
-        @Override
-        public void reload() {
-
-        }
+    public SongsManager getSongsManager() {
+        return songsManager;
     }
 }

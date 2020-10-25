@@ -1,36 +1,94 @@
 package dev.emir.models;
 
 import dev.emir.Main;
+import dev.emir.api.ColorText;
 import dev.emir.enums.GameStates;
 import dev.emir.enums.PlayerState;
 import dev.emir.interfaces.IConfigurationModel;
 import dev.emir.threads.GameTimer;
+import dev.emir.utils.Encrypter;
 import dev.emir.utils.FileReader;
+import dev.emir.utils.WorldEdit;
 import org.bukkit.Location;
-import org.bukkit.block.Chest;
-import org.bukkit.inventory.ItemStack;
+import org.bukkit.Material;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.entity.Player;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class GameModel implements IConfigurationModel<GameModel> {
 
     private int maxPlayers, minPlayers, lobbyTimeLeft, startingTimeLeft, gameTimeLeft, endTimeLeft;
-    private List<Location> chestEnableds = new ArrayList<>();
     private GameStates gameState = GameStates.WAITING;
-    private List<ItemStack> legendaryItems;
-    private List<ItemStack> normalItems;
-    private HashMap<UUID, List<PlayerModel>> players = new HashMap<>();
-    private List<ItemStack> rareItems;
-    private Location lobby, specLobby;
-    private List<Location> spawns;
-    private List<Location> bounds;
-    private Set<Chest> opened;
+    private transient ArrayList<PlayerModel> players = new ArrayList<PlayerModel>();
+    private transient GameTimer gameTimer;
+    private String lobby;
+    private String center;
     private String gameName;
-    private GameTimer gameTimer;
+    private transient WorldModel rollback;
 
     final transient File path = new File(Main.getInstance().getDataFolder(), "games");
+
+    public GameModel(int maxPlayers, int minPlayers, int lobbyTimeLeft, int startingTimeLeft, int gameTimeLeft, int endTimeLeft, GameStates gameState, String gameName, String center) {
+        this.maxPlayers = maxPlayers;
+        this.minPlayers = minPlayers;
+        this.lobbyTimeLeft = lobbyTimeLeft;
+        this.startingTimeLeft = startingTimeLeft;
+        this.gameTimeLeft = gameTimeLeft;
+        this.endTimeLeft = endTimeLeft;
+        this.gameState = gameState;
+        this.gameName = gameName;
+        this.center = center;
+        this.gameTimer = new GameTimer(this);
+        this.rollback = Main.getInstance().getWorldEdit().rollbacks.get(this.gameName);
+    }
+
+    public void loadButton() {
+        if (this.rollback != null) {
+            this.rollback.getBlockCache().forEach(blockData -> {
+                if (blockData.getLocation().getBlock().getType() == Material.BEDROCK) {
+                    setupButton(blockData.getLocation());
+                }
+            });
+        }
+    }
+
+    public void setupButton(Location base) {
+
+        Block block = base.getBlock();
+
+        Block northBlock = base.getBlock().getRelative(BlockFace.NORTH);
+        Block southBlock = base.getBlock().getRelative(BlockFace.SOUTH);
+        Block westBlock = base.getBlock().getRelative(BlockFace.WEST);
+        Block eastBlock = base.getBlock().getRelative(BlockFace.EAST);
+
+        if (northBlock.getType() != Material.AIR && !northBlock.isLiquid()) block.setType(northBlock.getType());
+        else if (southBlock.getType() != Material.AIR && !northBlock.isLiquid()) block.setType(southBlock.getType());
+        else if (westBlock.getType() != Material.AIR && !northBlock.isLiquid()) block.setType(westBlock.getType());
+        else if (eastBlock.getType() != Material.AIR && !northBlock.isLiquid()) block.setType(eastBlock.getType());
+
+        if (northBlock.getType() == Material.AIR && !northBlock.isLiquid())
+            northBlock.setType(northBlock.getType());
+        else if (southBlock.getType() == Material.AIR && !northBlock.isLiquid())
+            southBlock.setType(southBlock.getType());
+        else if (westBlock.getType() == Material.AIR && !northBlock.isLiquid())
+            westBlock.setType(westBlock.getType());
+        else if (eastBlock.getType() == Material.AIR && !northBlock.isLiquid())
+            eastBlock.setType(eastBlock.getType());
+
+    }
+
+    public void setRollback(WorldModel rollback) {
+        this.rollback = rollback;
+    }
+
+    public WorldModel getRollback() {
+        return rollback;
+    }
 
     public int getMaxPlayers() {
         return maxPlayers;
@@ -52,52 +110,12 @@ public class GameModel implements IConfigurationModel<GameModel> {
         return endTimeLeft;
     }
 
-    public List<Location> getChestEnableds() {
-        return chestEnableds;
-    }
-
     public GameStates getGameState() {
         return gameState;
     }
 
     public int getStartingTimeLeft() {
         return startingTimeLeft;
-    }
-
-    public List<ItemStack> getLegendaryItems() {
-        return legendaryItems;
-    }
-
-    public List<ItemStack> getNormalItems() {
-        return normalItems;
-    }
-
-    public Map<UUID, List<PlayerModel>> getPlayers() {
-        return players;
-    }
-
-    public List<ItemStack> getRareItems() {
-        return rareItems;
-    }
-
-    public Location getLobby() {
-        return lobby;
-    }
-
-    public Location getSpecLobby() {
-        return specLobby;
-    }
-
-    public List<Location> getSpawns() {
-        return spawns;
-    }
-
-    public List<Location> getBounds() {
-        return bounds;
-    }
-
-    public Set<Chest> getOpened() {
-        return opened;
     }
 
     public String getGameName() {
@@ -132,44 +150,9 @@ public class GameModel implements IConfigurationModel<GameModel> {
         this.endTimeLeft--;
     }
 
-    public void setChestEnableds(List<Location> chestEnableds) {
-        this.chestEnableds = chestEnableds;
-    }
-
     public void setGameState(GameStates gameState) {
         this.gameState = gameState;
-    }
-
-    public void setLegendaryItems(List<ItemStack> legendaryItems) {
-        this.legendaryItems = legendaryItems;
-    }
-
-    public void setNormalItems(List<ItemStack> normalItems) {
-        this.normalItems = normalItems;
-    }
-
-    public void setRareItems(List<ItemStack> rareItems) {
-        this.rareItems = rareItems;
-    }
-
-    public void setLobby(Location lobby) {
-        this.lobby = lobby;
-    }
-
-    public void setSpecLobby(Location specLobby) {
-        this.specLobby = specLobby;
-    }
-
-    public void setSpawns(List<Location> spawns) {
-        this.spawns = spawns;
-    }
-
-    public void setBounds(List<Location> bounds) {
-        this.bounds = bounds;
-    }
-
-    public void setOpened(Set<Chest> opened) {
-        this.opened = opened;
+        Main.getInstance().getBungeeCordListener().updateGame(this);
     }
 
     public void setGameName(String gameName) {
@@ -180,33 +163,40 @@ public class GameModel implements IConfigurationModel<GameModel> {
         this.gameTimer = gameTimer;
     }
 
-    public void broadcast(String message) {
-        this.getPlayers().values().forEach(gamePlayers -> {
-            gamePlayers.forEach(player -> {
-                if (player.isInGame()) {
-                    player.getPlayer().sendMessage(message);
-                }
-            });
-        });
+    public ArrayList<PlayerModel> getPlayers() {
+        return players;
     }
 
-    public List<PlayerModel> getTeam(UUID owner) {
-        return getPlayers().get(owner);
+    public GameTimer getGameTimer() {
+        return gameTimer;
+    }
+
+    public Location getLobby() {
+        return Encrypter.StringToLocation(this.lobby);
+    }
+
+    public String getCenter() {
+        return center;
+    }
+
+    public Location getCenterLocation() {
+        return Encrypter.StringToLocation(center);
+    }
+
+    public File getPath() {
+        return path;
+    }
+
+    public void broadcast(String message) {
+        this.players.forEach(playerModel -> {
+            if (playerModel.getState() != PlayerState.NA) {
+                playerModel.getPlayer().sendMessage(ColorText.translate(message));
+            }
+        });
     }
 
     public PlayerModel getPlayer(String playerName) {
-        for (List<PlayerModel> gamePlayers : this.getPlayers().values()) {
-            for (PlayerModel player : gamePlayers) {
-                if (player.getPlayer().getDisplayName().equalsIgnoreCase(playerName)) return player;
-            }
-        }
-        return null;
-    }
-
-    public void sendTeamMessage(UUID owner, String message) {
-        this.getPlayers().get(owner).forEach(to -> {
-            to.getPlayer().sendMessage(message);
-        });
+        return players.stream().filter(playerModel -> playerModel.getPlayer().getDisplayName().equalsIgnoreCase(playerName)).findAny().orElse(null);
     }
 
     @Override
@@ -224,7 +214,7 @@ public class GameModel implements IConfigurationModel<GameModel> {
 
     public GameModel load() {
         try {
-            FileReader.load(new File(this.path, this.gameName + ".json"), this);
+            return FileReader.load(new File(this.path, this.gameName + ".json"), this);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -232,5 +222,35 @@ public class GameModel implements IConfigurationModel<GameModel> {
     }
 
     public void reload() {
+        this.load();
+        this.save();
+    }
+
+    public GameInformation toGameInformation() {
+        return new GameInformation(gameName, getPlayers().size(), getMaxPlayers(), getGameState().name());
+    }
+
+    public void addPlayer(PlayerModel mPlayer) {
+        Main.getInstance().getBungeeCordListener().updateGame(this);
+        mPlayer.getPlayer().teleport(getLobby());
+
+        if (this.getPlayers().size() <= this.maxPlayers && !this.players.contains(mPlayer) && gameState == GameStates.WAITING) {
+            if (this.getPlayers().size() == this.maxPlayers) {
+                this.getTimer().setPaused(false);
+            }
+            this.players.add(mPlayer);
+            mPlayer.toPreLobby();
+            mPlayer.setState(PlayerState.WAITING);
+            mPlayer.getPlayer().setDisplayName(ColorText.translate("&a&l[" + mPlayer.getPlayer().getDisplayName() + "&c&l]&r"));
+            broadcast(mPlayer.getPlayer().getDisplayName() + "&cha entrado a la partida.");
+
+            Main.getInstance().getBungeeCordListener().updateGame(this);
+            getPlayers().forEach(Main.getInstance().getScoreboardDataHandler()::reloadData);
+            return;
+        }
+
+        if (this.players.contains(mPlayer)) this.players.remove(maxPlayers);
+
+        Main.getInstance().getBungeeCordListener().connect("lobby", mPlayer.getPlayer());
     }
 }
