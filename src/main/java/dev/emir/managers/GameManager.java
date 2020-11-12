@@ -1,16 +1,16 @@
 package dev.emir.managers;
 
 import dev.emir.Main;
-import dev.emir.models.*;
+import dev.emir.models.GameModel;
+import dev.emir.models.ManagerModel;
+import dev.emir.models.PlayerModel;
 import dev.emir.utils.Encrypter;
 import dev.emir.utils.Multithreading;
-import org.bukkit.GameMode;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.HashSet;
 
 public class GameManager extends ManagerModel<GameModel> {
 
@@ -48,7 +48,7 @@ public class GameManager extends ManagerModel<GameModel> {
                                 model.setRollback(Main.getInstance().getWorldEdit().rollbacks.get(model.getGameName()));
                                 model.loadButton();
 
-                                add(model);
+                                Main.getInstance().getGameManager().add(model);
                             }
                         } catch (IOException e) {
                             e.printStackTrace();

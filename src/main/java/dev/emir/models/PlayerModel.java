@@ -1,14 +1,8 @@
 package dev.emir.models;
 
 import com.google.gson.GsonBuilder;
-import com.google.gson.annotations.Expose;
-import com.mojang.authlib.GameProfile;
-import com.mojang.authlib.properties.Property;
 import dev.emir.Main;
 import dev.emir.enums.PlayerState;
-import dev.emir.objects.DefaultKit;
-import dev.emir.utils.Skin;
-import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.chat.TranslatableComponent;
 import net.minecraft.server.v1_8_R3.IChatBaseComponent;
 import net.minecraft.server.v1_8_R3.PacketPlayOutTitle;
@@ -24,7 +18,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -36,8 +29,12 @@ public class PlayerModel {
     private String uuid;
     private List<KitModel> kitsBought = new ArrayList<KitModel>();
     private int totalKills = 0;
-    private int currentKils = 0;
+    @BsonIgnore
+    private int currentKills = 0;
+    @BsonIgnore
+    private int currentBlocks = 0;
     private int wins = 0;
+    private int played = 0;
     private PlayerState state = PlayerState.NA;
 
     public void toSpectator() {
@@ -60,21 +57,10 @@ public class PlayerModel {
         getPlayer().setGameMode(GameMode.SURVIVAL);
         switch (getState()) {
             case VICTIM:
-                TranslatableComponent st = new TranslatableComponent("item.shovelDiamond.name");
-                ItemStack si = new ItemStack(Material.DIAMOND_SPADE);
-                ItemMeta sim = si.getItemMeta();
-                sim.setDisplayName("§6" + st.getTranslate());
-                si.setItemMeta(sim);
-
-                TranslatableComponent lt = new TranslatableComponent("tile.torch.name");
-                ItemStack li = new ItemStack(Material.BEACON);
-                ItemMeta lim = li.getItemMeta();
-                lim.setDisplayName("§eSuper " + lt.getTranslate());
-                li.setItemMeta(lim);
-
                 player.getInventory().clear();
-                player.getInventory().setItem(0, si);
-                player.getInventory().setItem(8, li);
+                this.getCurrentKit().getItems().forEach((integer, itemStack) -> {
+                    player.getInventory().setItem(integer, itemStack);
+                });
                 break;
             case KILLER:
                 TranslatableComponent dt = new TranslatableComponent("item.swordDiamond.name");
@@ -125,8 +111,8 @@ public class PlayerModel {
         return totalKills;
     }
 
-    public int getCurrentKils() {
-        return currentKils;
+    public int getCurrentKills() {
+        return currentKills;
     }
 
     public int getWins() {
@@ -135,6 +121,10 @@ public class PlayerModel {
 
     public Player getPlayer() {
         return player;
+    }
+
+    public int getPlayed() {
+        return played;
     }
 
     public PlayerModel setPlayer(Player player) {
@@ -146,6 +136,14 @@ public class PlayerModel {
     public PlayerModel setUuid(String uuid) {
         this.uuid = uuid;
         return this;
+    }
+
+    public int getCurrentBlocks() {
+        return currentBlocks;
+    }
+
+    public void addBlock() {
+        currentBlocks++;
     }
 
     public PlayerModel setPlayer(String uuid) {
@@ -180,7 +178,7 @@ public class PlayerModel {
                 if (model.isCurrent()) return model;
             }
         }
-        return new DefaultKit();
+        return null;
     }
 
     public PlayerState getState() {
@@ -213,39 +211,7 @@ public class PlayerModel {
         ((CraftPlayer) player).getHandle().playerConnection.sendPacket(ppoc);
     }
 
-    public String uuidrep() {
-        return this.getUuid().replace("-", "");
-    }
-
     public void changeSkin() {
-        GameProfile profile = ((CraftPlayer) getPlayer()).getProfile();
-        profile.getProperties().clear();
-        Skin skin = new Skin(uuidrep());
-        if (skin.getSkinName() != null) {
-            profile.getProperties().put(skin.getSkinName(), new Property(skin.getSkinName(), skin.getSkinValue(), skin.getSkinSignatur()));
-            Bukkit.getScheduler().runTaskLater(Main.getInstance(), new Runnable() {
-                @Override
-                public void run() {
-                    for (Player p :
-                            Bukkit.getOnlinePlayers()) {
-                        p.hidePlayer(player);
-                    }
-                }
-            }, 1);
-
-            Bukkit.getScheduler().runTaskLater(Main.getInstance(), new Runnable() {
-                @Override
-                public void run() {
-                    for (Player p :
-                            Bukkit.getOnlinePlayers()) {
-                        p.showPlayer(player);
-                    }
-                }
-            }, 19);
-            player.sendMessage("Listo");
-        } else {
-            player.sendMessage("CULO");
-        }
 
     }
 

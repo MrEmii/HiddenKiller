@@ -13,9 +13,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
-import org.bukkit.potion.PotionType;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.util.Vector;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -59,10 +57,11 @@ public class GameTimer extends BukkitRunnable {
             scoreboard.clear();
 
             switch (playerModel.getState()) {
+                case SPECTATOR:
                 case KILLER:
                     Main.getInstance().getConfig().getStringList("scoreboard.killer").forEach(line -> {
                         line = line.replace("{playerState}", playerModel.getState().getText())
-                                .replace("{playerKills}", String.valueOf(playerModel.getCurrentKils()))
+                                .replace("{playerKills}", String.valueOf(playerModel.getCurrentKills()))
                                 .replace("{date}", DateFor.format(date))
                                 .replace("{mapTime}", formatTime())
                                 .replace("{counter}", String.valueOf(model.getPlayers().size()))
@@ -95,7 +94,6 @@ public class GameTimer extends BukkitRunnable {
             }
 
             scoreboard.update(playerModel.getPlayer());
-
 
             if (model.getLobbyTimeLeft() <= 4) {
                 playerModel.sendActionBar("&6El juego comienza en:" + model.getLobbyTimeLeft() + " segundos");

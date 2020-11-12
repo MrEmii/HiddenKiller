@@ -7,16 +7,20 @@ import dev.emir.models.GameModel;
 import dev.emir.models.PlayerModel;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
-import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
+import org.bukkit.event.inventory.ClickType;
+import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.event.world.ChunkUnloadEvent;
@@ -28,7 +32,6 @@ public class PlayerListeners implements Listener {
     public void onPlayerJoinAsync(AsyncPlayerPreLoginEvent e) {
         try {
             PlayerModel mPlayer = Main.getInstance().getPlayerManager().get(e.getUniqueId().toString());
-            mPlayer.save();
         } catch (Exception es) {
             es.printStackTrace();
             e.setLoginResult(AsyncPlayerPreLoginEvent.Result.KICK_OTHER);
@@ -37,35 +40,37 @@ public class PlayerListeners implements Listener {
     }
 
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onPlayerJoin(PlayerJoinEvent e) {
-        Player player = e.getPlayer();
-        PlayerModel mPlayer = Main.getInstance().getPlayerManager().get(e.getPlayer().getUniqueId().toString()).setPlayer(e.getPlayer());
-        GameModel model = Main.getInstance().getGameManager().get(mPlayer.getUuid());
-        for (int i = 0; i < 100; i++) {
-            player.sendMessage("");
-        }
-        Main.getInstance().getSongsManager().addPlayer(player);
-        Main.getInstance().getSongsManager().play();
-        StringBuilder color = new StringBuilder("§r");
-        for (int i = 0; i < Bukkit.getOnlinePlayers().size(); i++) {
-            color.append("§r");
-        }
 
-        player.setDisplayName(color.toString());
+        Bukkit.getScheduler().runTaskAsynchronously(Main.getInstance(), new Runnable() {
+            @Override
+            public void run() {
+                Player player = e.getPlayer();
+                PlayerModel mPlayer = Main.getInstance().getPlayerManager().get(e.getPlayer().getUniqueId().toString()).setPlayer(e.getPlayer());
 
-        if (model == null) {
-            if (!player.isOp() || !player.hasPermission("hk.op")) {
-                Main.getInstance().getBungeeCordListener().connect("lobby", player);
+                for (int i = 0; i < 100; i++) {
+                    player.sendMessage("");
+                }
+
+                if (!Main.getInstance().getConfig().getString("spawn.world").equalsIgnoreCase("undefined")) {
+                    player.teleport(lobby());
+                } else {
+                    if (player.isOp())
+                        player.sendMessage(ChatColor.translateAlternateColorCodes('&', "&aUtiliza el comando &l/gh setlobby&a para setear el lobby!"));
+                }
+                try {
+                    mPlayer.save();
+                } catch (Exception e1) {
+                    e1.printStackTrace();
+                }
+
+                e.setJoinMessage(null);
             }
-        } else {
-            model.addPlayer(mPlayer);
-        }
-
-        e.setJoinMessage(null);
+        });
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onPlayerQuit(PlayerQuitEvent e) {
         PlayerModel mPlayer = Main.getInstance().getPlayerManager().get(e.getPlayer().getUniqueId().toString()).setPlayer(e.getPlayer());
         try {
@@ -77,7 +82,7 @@ public class PlayerListeners implements Listener {
         e.setQuitMessage(null);
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onPlayerKick(PlayerKickEvent e) {
         PlayerModel mPlayer = Main.getInstance().getPlayerManager().get(e.getPlayer().getUniqueId().toString()).setPlayer(e.getPlayer());
         try {
@@ -90,14 +95,14 @@ public class PlayerListeners implements Listener {
     }
 
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onPlayerAchievement(PlayerAchievementAwardedEvent e) {
         e.setCancelled(true);
     }
 
     @EventHandler
     public void onPlayerHurt(EntityDamageEvent event) {
-        if ((event.getEntity() instanceof Player) && !event.getEntity().isOp()) {
+        if (((event.getEntity() instanceof Player)) && (event.getCause() == EntityDamageEvent.DamageCause.SUFFOCATION) && !event.getEntity().isOp()) {
             event.setCancelled(true);
         }
     }
@@ -119,12 +124,6 @@ public class PlayerListeners implements Listener {
         event.setCancelled(true);
     }
 
-    @EventHandler(ignoreCancelled = true)
-    public void playerDropItemEvent(PlayerDropItemEvent event) {
-        if (!event.getPlayer().isOp() || !event.getPlayer().hasPermission("gh.drop"))
-            event.setCancelled(true);
-    }
-
     @EventHandler
     public void onEntityDeathEvent(EntityDeathEvent event) {
         if (!(event.getEntity() instanceof Player)) {
@@ -138,83 +137,92 @@ public class PlayerListeners implements Listener {
         event.setCancelled(true);
     }
 
-    @EventHandler
-    public void onPlayerSuffocation(EntityDamageEvent event) {
-        if (((event.getEntity() instanceof Player)) && (event.getCause() == EntityDamageEvent.DamageCause.SUFFOCATION)) {
-            event.setCancelled(true);
-        }
-    }
-
     @EventHandler(priority = EventPriority.LOWEST)
-    public void onPlayerFallIntoVoid(EntityDamageEvent event) {
-        if (event.getEntity() instanceof Player) {
-            event.setCancelled(true);
+    public void playerTryKill(EntityDamageEvent event) {
+        if (event.getCause() != EntityDamageEvent.DamageCause.VOID) {
+
         }
+
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onPlayerBreakBlock(BlockBreakEvent event) {
         Player player = event.getPlayer();
         PlayerModel playerModel = Main.getInstance().getPlayerManager().get(player.getUniqueId().toString());
+        if (player.isOp() || player.hasPermission("hk.admin")) return;
+        event.setCancelled(true);
         if (playerModel.getState() != PlayerState.NA) {
             GameModel model = Main.getInstance().getGameManager().getByPlayerName(player.getName());
             if (model != null) {
-                if (model.getGameState() == GameStates.WAITING || model.getGameState() == GameStates.STARTING) {
-                    event.setCancelled(true);
-                    return;
+                if (model.getGameState() != GameStates.WAITING || model.getGameState() != GameStates.STARTING && hasBlock(playerModel)) {
+                    playerModel.addBlock();
+                    event.setExpToDrop(0);
+                    event.getBlock().setType(Material.AIR);
                 }
             }
         }
-        if (player.isOp() || player.hasPermission("hk.admin")) return;
-
-        Main.getInstance().getBungeeCordListener().connect("hub", player);
     }
 
-    @EventHandler(priority = EventPriority.LOWEST)
-    public void onPlayerPlaceBlock(BlockPlaceEvent event) {
-        if (!event.getPlayer().isOp() || !event.getPlayer().hasPermission("gh.place"))
-            event.setCancelled(true);
-    }
-
-    @EventHandler
-    public void onPlayerFishEvent(PlayerFishEvent event) {
-        if (event.getState() == PlayerFishEvent.State.CAUGHT_FISH) {
-            event.setExpToDrop(0);
-            event.setCancelled(true);
-        }
+    public boolean hasBlock(PlayerModel model) {
+        return model.getCurrentBlocks() < model.getCurrentKit().getBlocks();
     }
 
     @EventHandler
     public void onPlayerInteract(InventoryClickEvent e) {
         Player player = (Player) e.getWhoClicked();
-        PlayerModel playerModel = Main.getInstance().getPlayerManager().get(player.getUniqueId().toString());
-        if (playerModel.getState() != PlayerState.NA) {
+
+        if (!player.isOp()) {
             e.setCancelled(true);
-            return;
         }
+    }
 
-        if (player.isOp() || player.hasPermission("hk.admin")) return;
-
-        Main.getInstance().getBungeeCordListener().connect("hub", player);
+    @EventHandler
+    public void inter(PlayerPickupItemEvent e) {
+        e.setCancelled(true);
     }
 
     @EventHandler
     public void onPlayerMove(PlayerMoveEvent e) {
         Player player = e.getPlayer();
         PlayerModel playerModel = Main.getInstance().getPlayerManager().get(player.getUniqueId().toString());
+
+        if (player.isOp() || player.hasPermission("hk.admin")) return;
+
         if (playerModel.getState() != PlayerState.NA) {
             GameModel model = Main.getInstance().getGameManager().getByPlayerName(player.getName());
             if (model != null) {
-                if (model.getGameState() == GameStates.WAITING || model.getGameState() == GameStates.STARTING && playerModel.getState() == PlayerState.STARTING) {
+                if (model.getGameState() == GameStates.WAITING || model.getGameState() == GameStates.STARTING && playerModel.getState() != PlayerState.SPECTATOR) {
                     e.setCancelled(true);
                     return;
                 }
             }
         }
-        if (player.isOp() || player.hasPermission("hk.admin")) return;
 
-        Main.getInstance().getBungeeCordListener().connect("hub", player);
+        if (playerModel.getState() == PlayerState.NA) {
+            Location from = e.getFrom();
+            Location to = e.getTo();
 
+            if (from.getBlockX() == to.getBlockX() && from.getBlockY() == to.getBlockY() && from.getBlockZ() == to.getBlockZ()) {
+                return;
+            }
+            if (e.getTo().getY() <= -44) {
+                if (!Main.getInstance().getConfig().getString("spawn.world").equalsIgnoreCase("undefined")) {
+                    Location lobby = lobby();
+
+                    e.setTo(lobby);
+                }
+
+            }
+        }
+
+        e.setCancelled(false);
+    }
+
+    private static Location lobby() {
+        Location lobby = new Location(Bukkit.getWorld(Main.getInstance().getConfig().getString("spawn.world")), Main.getInstance().getConfig().getDouble("spawn.x"), Main.getInstance().getConfig().getDouble("spawn.y"), Main.getInstance().getConfig().getDouble("spawn.z"));
+        lobby.setYaw((float) Main.getInstance().getConfig().getDouble("spawn.yaw"));
+        lobby.setPitch((float) Main.getInstance().getConfig().getDouble("spawn.pitch"));
+        return lobby;
     }
 
 }

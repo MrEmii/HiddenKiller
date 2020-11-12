@@ -8,12 +8,11 @@ import dev.emir.interfaces.IConfigurationModel;
 import dev.emir.threads.GameTimer;
 import dev.emir.utils.Encrypter;
 import dev.emir.utils.FileReader;
-import dev.emir.utils.WorldEdit;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
-import org.bukkit.entity.Player;
 
 import java.io.File;
 import java.io.IOException;
@@ -22,7 +21,7 @@ import java.util.List;
 
 public class GameModel implements IConfigurationModel<GameModel> {
 
-    private int maxPlayers, minPlayers, lobbyTimeLeft, startingTimeLeft, gameTimeLeft, endTimeLeft;
+    private int maxPlayers, minPlayers, lobbyTimeLeft, startingTimeLeft, gameTimeLeft, endTimeLeft, killers;
     private GameStates gameState = GameStates.WAITING;
     private transient ArrayList<PlayerModel> players = new ArrayList<PlayerModel>();
     private transient GameTimer gameTimer;
@@ -152,7 +151,9 @@ public class GameModel implements IConfigurationModel<GameModel> {
 
     public void setGameState(GameStates gameState) {
         this.gameState = gameState;
-        Main.getInstance().getBungeeCordListener().updateGame(this);
+        Bukkit.getOnlinePlayers().forEach(player -> {
+            //player.sendSignChange();
+        });
     }
 
     public void setGameName(String gameName) {
@@ -231,7 +232,7 @@ public class GameModel implements IConfigurationModel<GameModel> {
     }
 
     public void addPlayer(PlayerModel mPlayer) {
-        Main.getInstance().getBungeeCordListener().updateGame(this);
+
         mPlayer.getPlayer().teleport(getLobby());
 
         if (this.getPlayers().size() <= this.maxPlayers && !this.players.contains(mPlayer) && gameState == GameStates.WAITING) {
@@ -244,13 +245,14 @@ public class GameModel implements IConfigurationModel<GameModel> {
             mPlayer.getPlayer().setDisplayName(ColorText.translate("&a&l[" + mPlayer.getPlayer().getDisplayName() + "&c&l]&r"));
             broadcast(mPlayer.getPlayer().getDisplayName() + "&cha entrado a la partida.");
 
-            Main.getInstance().getBungeeCordListener().updateGame(this);
             getPlayers().forEach(Main.getInstance().getScoreboardDataHandler()::reloadData);
             return;
         }
-
+        
         if (this.players.contains(mPlayer)) this.players.remove(maxPlayers);
+    }
 
-        Main.getInstance().getBungeeCordListener().connect("lobby", mPlayer.getPlayer());
+    public void update(){
+
     }
 }

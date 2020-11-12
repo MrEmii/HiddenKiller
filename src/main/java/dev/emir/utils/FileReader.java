@@ -2,13 +2,14 @@ package dev.emir.utils;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import dev.emir.adapters.ClassFactory;
 import dev.emir.interfaces.IConfigurationModel;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 
 public class FileReader {
-    public static Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    public static transient Gson gson = new GsonBuilder().setPrettyPrinting().registerTypeAdapterFactory(new ClassFactory()).create();
 
     public static <T> void encryptSave(IConfigurationModel<T> configurationModel, File sourceFile, String filename) throws IOException {
         OutputStreamWriter fileWriter;
@@ -24,7 +25,7 @@ public class FileReader {
 
         fileWriter = new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8);
         buffWritter = new BufferedWriter(fileWriter);
-        System.out.println(filename);
+
         buffWritter.write(Encrypter.encode(gson.toJson(configurationModel), 26));
 
         buffWritter.close();
@@ -35,7 +36,7 @@ public class FileReader {
         OutputStreamWriter fileWriter;
         BufferedWriter buffWritter;
         File file = new File(sourceFile, filename.endsWith(".json") ? filename : filename.concat(".json"));
-        if (!sourceFile.mkdirs()) System.out.println(sourceFile.toString() + " Are already created");
+        if (!sourceFile.mkdirs()) System.out.println("");
         if (!file.exists()) {
             if (!file.createNewFile()) {
                 System.out.println(filename + " Can't create");
@@ -45,7 +46,7 @@ public class FileReader {
 
         fileWriter = new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8);
         buffWritter = new BufferedWriter(fileWriter);
-        System.out.println(filename);
+
         buffWritter.write(gson.toJson(configurationModel));
 
         buffWritter.close();
